@@ -66,36 +66,7 @@ window.deleteFromFirebase = async function(id) {
   }
 };
 
-// Firebase load handled by fbLoad()
-
-window.saveToFirebase = async function(obj) {
-  try {
-    const { id, ...data } = obj;
-    if(id && id.length > 10 && !id.startsWith('local_')) {
-      await db.collection('objects').doc(id).update(data);
-    } else {
-      await db.collection('objects').add(data);
-    }
-    return true;
-  } catch(e) {
-    console.error('Save error:', e);
-    return false;
-  }
-};
-
-window.deleteFromFirebase = async function(id) {
-  try {
-    await db.collection('objects').doc(id).delete();
-    return true;
-  } catch(e) {
-    console.error('Delete error:', e);
-    return false;
-  }
-};
-
-document.addEventListener('DOMContentLoaded', () => {
-  window.loadFromFirebase();
-});
+// Firebase ready
 </script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@300;400&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');

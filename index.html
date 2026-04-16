@@ -29,6 +29,8 @@ function fbLoad() {
     snapshot.forEach(function(d) {
       window.objects.push(Object.assign({id: d.id}, d.data()));
     });
+    // Sync to local variable used by renderGrid
+    objects = window.objects;
     if(typeof renderGrid === 'function') renderGrid();
     if(typeof updateStats === 'function') updateStats();
   }).catch(function(e) {

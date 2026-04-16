@@ -5,44 +5,37 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Additiverse — Digitale Bibliothek des Kulturerbes</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<!-- Firebase -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, orderBy, query } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
-
+<!-- Firebase compat (works without bundler) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
 const firebaseConfig = {
   apiKey: "AIzaSyD85uH-cE3__TYELzegJMtnEcwc1Mp5aUA",
   authDomain: "digital-kulturerbe.firebaseapp.com",
   projectId: "digital-kulturerbe",
   storageBucket: "digital-kulturerbe.firebasestorage.app",
   messagingSenderId: "8707368312",
-  appId: "1:8707368312:web:a10b18adf8f0964bf1d48d",
-  measurementId: "G-75NTWP0LCK"
+  appId: "1:8707368312:web:a10b18adf8f0964bf1d48d"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
-// Make db available globally
-window._db = db;
-window._col = () => collection(db, 'objects');
-window._fbOps = { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, onSnapshot, orderBy, query };
-
-// Load objects from Firestore
 window.loadFromFirebase = async function() {
   try {
-    const q = query(collection(db, 'objects'), orderBy('createdAt', 'desc'));
-    onSnapshot(q, (snapshot) => {
+    db.collection('objects').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
       window.objects = [];
       snapshot.forEach(d => {
         window.objects.push({ id: d.id, ...d.data() });
       });
       if(window.renderGrid) window.renderGrid();
       if(window.updateStats) window.updateStats();
+    }, (err) => {
+      console.error('Snapshot error:', err);
+      window.loadFromLocalStorage();
     });
   } catch(e) {
     console.error('Firebase load error:', e);
-    window.toast('Verbindungsfehler — Offline-Modus aktiv');
     window.loadFromLocalStorage();
   }
 };
@@ -50,26 +43,21 @@ window.loadFromFirebase = async function() {
 window.saveToFirebase = async function(obj) {
   try {
     const { id, ...data } = obj;
-    if(id && id.startsWith('fb_')) {
-      // update
-      const ref = doc(db, 'objects', id.replace('fb_',''));
-      await updateDoc(ref, data);
+    if(id && id.length > 10 && !id.startsWith('local_')) {
+      await db.collection('objects').doc(id).update(data);
     } else {
-      // create
-      await addDoc(collection(db, 'objects'), data);
+      await db.collection('objects').add(data);
     }
     return true;
   } catch(e) {
     console.error('Save error:', e);
-    window.toast('Speicherfehler — lokal gespeichert');
     return false;
   }
 };
 
 window.deleteFromFirebase = async function(id) {
   try {
-    const realId = id.startsWith('fb_') ? id.replace('fb_','') : id;
-    await deleteDoc(doc(db, 'objects', realId));
+    await db.collection('objects').doc(id).delete();
     return true;
   } catch(e) {
     console.error('Delete error:', e);
@@ -77,7 +65,6 @@ window.deleteFromFirebase = async function(id) {
   }
 };
 
-// Init
 document.addEventListener('DOMContentLoaded', () => {
   window.loadFromFirebase();
 });

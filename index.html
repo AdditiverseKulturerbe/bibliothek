@@ -20,25 +20,53 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+db.settings({ experimentalForceLongPolling: true, merge: true });
 
-window.loadFromFirebase = async function() {
-  try {
-    db.collection('objects').orderBy('createdAt', 'desc').onSnapshot((snapshot) => {
-      window.objects = [];
-      snapshot.forEach(d => {
-        window.objects.push({ id: d.id, ...d.data() });
-      });
-      if(window.renderGrid) window.renderGrid();
-      if(window.updateStats) window.updateStats();
-    }, (err) => {
-      console.error('Snapshot error:', err);
-      window.loadFromLocalStorage();
+// Firebase operations - defined here, use renderGrid after main script loads
+function fbLoad() {
+  db.collection('objects').orderBy('createdAt','desc').get().then(function(snapshot) {
+    window.objects = [];
+    snapshot.forEach(function(d) {
+      window.objects.push(Object.assign({id: d.id}, d.data()));
     });
+    if(typeof renderGrid === 'function') renderGrid();
+    if(typeof updateStats === 'function') updateStats();
+  }).catch(function(e) {
+    console.error('Firebase error:', e);
+    if(typeof loadFromLocalStorage === 'function') loadFromLocalStorage();
+  });
+}
+
+window.saveToFirebase = async function(obj) {
+  try {
+    const id = obj.id;
+    const data = Object.assign({}, obj);
+    delete data.id;
+    if(id && id.length > 10 && !id.startsWith('local_')) {
+      await db.collection('objects').doc(id).update(data);
+    } else {
+      await db.collection('objects').add(data);
+    }
+    fbLoad();
+    return true;
   } catch(e) {
-    console.error('Firebase load error:', e);
-    window.loadFromLocalStorage();
+    console.error('Save error:', e);
+    return false;
   }
 };
+
+window.deleteFromFirebase = async function(id) {
+  try {
+    await db.collection('objects').doc(id).delete();
+    fbLoad();
+    return true;
+  } catch(e) {
+    console.error('Delete error:', e);
+    return false;
+  }
+};
+
+// Firebase load handled by fbLoad()
 
 window.saveToFirebase = async function(obj) {
   try {
@@ -1029,8 +1057,9 @@ document.querySelectorAll('.modal-backdrop').forEach(bd=>{
 });
 
 /* ══ INIT ══ */
-// Show empty state while Firebase loads
 document.getElementById('lib-empty').style.display='flex';
+// Load from Firebase
+fbLoad();
 </script>
 </body>
 </html>
